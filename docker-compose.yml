@@ -1,0 +1,111 @@
+version: '3.8'
+
+services:
+  postgres-flight:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: flight
+      POSTGRES_USER: flight
+      POSTGRES_PASSWORD: flight
+    ports:
+      - "5432:5432"
+    volumes:
+      - flight_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flight"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - booking-network
+
+  postgres-booking:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: booking
+      POSTGRES_USER: booking
+      POSTGRES_PASSWORD: booking
+    ports:
+      - "5433:5432"
+    volumes:
+      - booking_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U booking"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - booking-network
+  
+  flyway-flight:
+    image: flyway/flyway:9.22
+    volumes:
+      - ./flight-service/migrations:/flyway/sql
+    command: migrate -url=jdbc:postgresql://postgres-flight:5432/flight -user=flight -password=flight
+    depends_on:
+      postgres-flight:
+        condition: service_healthy
+    networks:
+      - booking-network
+
+  flyway-booking:
+    image: flyway/flyway:9.22
+    volumes:
+      - ./booking-service/migrations:/flyway/sql
+    command: migrate -url=jdbc:postgresql://postgres-booking:5432/booking -user=booking -password=booking
+    depends_on:
+      postgres-booking:
+        condition: service_healthy
+    networks:
+      - booking-network
+
+  flight-service:
+    build:
+      context: .
+      dockerfile: flight-service/Dockerfile
+    ports:
+      - "9090:9090"
+    environment:
+      DB_HOST: postgres-flight
+      DB_PORT: 5432
+      DB_NAME: flight
+      DB_USER: flight
+      DB_PASSWORD: flight
+      GRPC_PORT: 9090
+    depends_on:
+      flyway-flight:
+        condition: service_completed_successfully
+    networks:
+      - booking-network
+    restart: on-failure
+
+  booking-service:
+    build:
+      context: .
+      dockerfile: booking-service/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      DB_HOST: postgres-booking
+      DB_PORT: 5432
+      DB_NAME: booking
+      DB_USER: booking
+      DB_PASSWORD: booking
+      HTTP_PORT: 8080
+      FLIGHT_SERVICE_ADDR: flight-service:9090
+    depends_on:
+      flyway-booking:
+        condition: service_completed_successfully
+      flight-service:
+        condition: service_started
+    networks:
+      - booking-network
+    restart: on-failure
+
+volumes:
+  flight_data:
+  booking_data:
+
+networks:
+  booking-network:
+    driver: bridge

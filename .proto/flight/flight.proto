@@ -1,0 +1,104 @@
+syntax = "proto3";
+package flight;
+option go_package = "flight-booking/.gen/.proto/flight;flightpb";
+
+import "google/protobuf/timestamp.proto";
+// import "google/protobuf/empty.proto";
+
+enum FlightStatus {
+    FLIGHT_STATUS_UNSPECIFIED = 0;
+    FLIGHT_STATUS_SCHEDULED = 1;
+    FLIGHT_STATUS_DEPARTED = 2;
+    FLIGHT_STATUS_CANCELLED = 3;
+    FLIGHT_STATUS_COMPLETED = 4;
+}
+
+enum ReservationStatus {
+    RESERVATION_STATUS_UNSPECIFIED = 0;
+    RESERVATION_STATUS_ACTIVE = 1;
+    RESERVATION_STATUS_RELEASED = 2;
+    RESERVATION_STATUS_EXPIRED = 3;
+}
+
+message Flight {
+    string id = 1;
+    string flight_number = 2;
+    google.protobuf.Timestamp departure_date = 3;
+    string airline = 4;
+    string origin_airport = 5;
+    string destination_airport = 6;
+    google.protobuf.Timestamp departure_time = 7;
+    google.protobuf.Timestamp arrival_time = 8;
+    int32 total_seats = 9;
+    int32 available_seats = 10;
+    double price = 11;
+    FlightStatus status = 12;
+}
+
+message SearchFlightsRequest {
+    string origin = 1;
+    string destination = 2;
+    optional google.protobuf.Timestamp date = 3;
+}
+
+message SearchFlightsResponse {
+    repeated Flight flights = 1;
+}
+
+message GetFlightRequest {
+    string id = 1;
+}
+
+message GetFlightResponse {
+    Flight flight = 1;
+}
+
+message ReserveSeatsRequest {
+    string flight_id = 1;
+    int32 seat_count = 2;
+    string booking_id = 3;
+}
+
+message ReserveSeatsResponse {
+    string reservation_id = 1;
+}
+
+message ReleaseReservationRequest {
+    string booking_id = 1;
+}
+
+message ReleaseReservationResponse {
+    bool released = 1;
+}
+
+service FlightService {
+    rpc SearchFlights(SearchFlightsRequest) returns (SearchFlightsResponse);
+    // Status codes
+    // OK; Successful
+    // INVALID_ARGUMENT; Invalid arguments (empty origin or destination)
+    // NOT_FOUND; Flight is not found
+    // INTERNAL; Internal error
+
+    rpc GetFlight(GetFlightRequest) returns (GetFlightResponse);
+    // Status codes
+    // OK; Successful
+    // INVALID_ARGUMENT; Empty id
+    // NOT_FOUND; Flight is not found
+    // INTERNAL; Internal error
+
+    rpc ReserveSeats(ReserveSeatsRequest) returns (ReserveSeatsResponse);
+    // Status codes
+    // OK; Successful
+    // INVALID_ARGUMENT; Invalid arguments (seat_count <= 0, empty flight_id or booking_id)
+    // NOT_FOUND; Flight or booking is not found
+    // RESOURCE_EXHAUSTED; Too few seats left
+    // ALREADY_EXISTS; Booking is already exists
+    // INTERNAL; Internal error
+
+    rpc ReleaseReservation(ReleaseReservationRequest) returns (ReleaseReservationResponse);
+    // Status codes
+    // OK; Successful
+    // INVALID_ARGUMENT; Invalid arguments (empty booking_id)
+    // NOT_FOUND; active booking is not found
+    // INTERNAL; Internal error
+}

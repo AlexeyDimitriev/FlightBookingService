@@ -1,0 +1,46 @@
+# After inserting test data
+
+# Book flight
+curl -s -X POST http://localhost:8080/bookings \
+  -H "Content-Type: application/json" \
+  -d '{
+    "flight_id": "<FLIGHT_ID>",
+    "passenger_name": "John Doe",
+    "passenger_email": "john@example.com",
+    "passenger_phone": "88005553535",
+    "seat_count": 2
+  }' | jq
+
+# Check available seats (must be 48)
+docker-compose exec postgres-flight psql -U flight -d flight -c "
+SELECT available_seats FROM flights WHERE flight_number = 'TEST001';"
+
+# Check if booking created
+docker-compose exec postgres-booking psql -U booking -d booking -c "
+SELECT id, seat_count, total_price, status FROM bookings WHERE passenger_email = 'john@example.com';"
+
+# Check if seat reservation created
+docker-compose exec postgres-flight psql -U flight -d flight -c "
+SELECT booking_id, seat_count, status FROM seat_reservations WHERE status = 'ACTIVE';"
+
+# Try to delete booking
+curl -s -X POST http://localhost:8080/bookings/<BOOKING_ID>/cancel -w "\nHTTP: %{http_code}\n"
+
+# Check if seats returned (must be 50)
+docker-compose exec postgres-flight psql -U flight -d flight -c "
+SELECT available_seats FROM flights WHERE flight_number = 'TEST001';"
+
+# Try to book too much seats
+curl -s -X POST http://localhost:8080/bookings \
+  -H "Content-Type: application/json" \
+  -d '{
+    "flight_id": "<FLIGHT_ID>",
+    "passenger_name": "Jane Doe",
+    "passenger_email": "jane@example.com",
+    "passenger_phone": "88005553536",
+    "seat_count": 100
+  }' -w "\nHTTP: %{http_code}\n"
+
+# Check if booking didn't created
+docker-compose exec postgres-booking psql -U booking -d booking -c "
+SELECT COUNT(*) FROM bookings WHERE passenger_email = 'jane@example.com';"
