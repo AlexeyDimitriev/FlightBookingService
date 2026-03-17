@@ -72,6 +72,7 @@ services:
       DB_USER: flight
       DB_PASSWORD: flight
       GRPC_PORT: 9090
+      GRPC_API_KEY: super-duper-secret-key
     depends_on:
       flyway-flight:
         condition: service_completed_successfully
@@ -93,6 +94,7 @@ services:
       DB_PASSWORD: booking
       HTTP_PORT: 8080
       FLIGHT_SERVICE_ADDR: flight-service:9090
+      GRPC_API_KEY: super-duper-secret-key
     depends_on:
       flyway-booking:
         condition: service_completed_successfully

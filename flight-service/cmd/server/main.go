@@ -9,6 +9,7 @@ import (
 
 	"flight-booking/flight-service/internal/handler"
 	"flight-booking/flight-service/internal/repository"
+	"flight-booking/flight-service/internal/middleware"
 	"flight-booking/flight-service/pkg/database"
 	flightpb "flight-booking/.gen/.proto/flight"
 )
@@ -29,7 +30,9 @@ func main() {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(middleware.AuthInterceptor()),
+	)
 	flightpb.RegisterFlightServiceServer(grpcServer, h)
 	
 

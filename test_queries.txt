@@ -28,7 +28,7 @@ curl -s -X POST http://localhost:8080/bookings/<BOOKING_ID>/cancel -w "\nHTTP: %
 
 # Check if seats returned (must be 50)
 docker-compose exec postgres-flight psql -U flight -d flight -c "
-SELECT available_seats FROM flights WHERE flight_number = 'TEST001';"
+SELECT id, available_seats FROM flights WHERE flight_number = 'TEST001';"
 
 # Try to book too much seats
 curl -s -X POST http://localhost:8080/bookings \

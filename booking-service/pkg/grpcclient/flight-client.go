@@ -7,6 +7,7 @@ import (
     "time"
 
     "google.golang.org/grpc"
+    "google.golang.org/grpc/metadata"
     "google.golang.org/grpc/credentials/insecure"
     "google.golang.org/protobuf/types/known/timestamppb"
 
@@ -16,10 +17,12 @@ import (
 type FlightClient struct {
     conn *grpc.ClientConn
     client flightpb.FlightServiceClient
+    apiKey string
 }
 
 func NewFlightClient() *FlightClient {
     addr := os.Getenv("FLIGHT_SERVICE_ADDR")
+    key := os.Getenv("GRPC_API_KEY")
     if addr == "" {
         addr = "flight-service:9090"
     }
@@ -32,6 +35,7 @@ func NewFlightClient() *FlightClient {
     return &FlightClient{
         conn: conn,
         client: flightpb.NewFlightServiceClient(conn),
+        apiKey: key,
     }
 }
 
@@ -39,7 +43,16 @@ func (c *FlightClient) Close() error {
     return c.conn.Close()
 }
 
+func (c *FlightClient) withAuth(ctx context.Context) context.Context {
+    if c.apiKey == "" {
+        return ctx
+    }
+    return metadata.AppendToOutgoingContext(ctx, "authorization", c.apiKey)
+}
+
 func (c *FlightClient) GetFlight(ctx context.Context, id string) (*flightpb.Flight, error) {
+    ctx = c.withAuth(ctx)
+    
     resp, err := c.client.GetFlight(ctx, &flightpb.GetFlightRequest{Id: id})
     if err != nil {
         return nil, err
@@ -48,6 +61,8 @@ func (c *FlightClient) GetFlight(ctx context.Context, id string) (*flightpb.Flig
 }
 
 func (c *FlightClient) SearchFlights(ctx context.Context, origin, destination string, date *time.Time) ([]*flightpb.Flight, error) {
+    ctx = c.withAuth(ctx)
+    
     var datePb *timestamppb.Timestamp
     if date != nil {
         datePb = timestamppb.New(*date)
@@ -68,6 +83,8 @@ func (c *FlightClient) SearchFlights(ctx context.Context, origin, destination st
 }
 
 func (c *FlightClient) ReserveSeats(ctx context.Context, flightID string, seatCount int32, bookingID string) (string, error) {
+    ctx = c.withAuth(ctx)
+    
     resp, err := c.client.ReserveSeats(ctx, &flightpb.ReserveSeatsRequest{
         FlightId:  flightID,
         SeatCount: seatCount,
@@ -81,6 +98,8 @@ func (c *FlightClient) ReserveSeats(ctx context.Context, flightID string, seatCo
 }
 
 func (c *FlightClient) ReleaseReservation(ctx context.Context, bookingID string) error {
+    ctx = c.withAuth(ctx)
+    
     _, err := c.client.ReleaseReservation(ctx, &flightpb.ReleaseReservationRequest{BookingId: bookingID})
     return err
 }
