@@ -15,6 +15,10 @@ curl -s -X POST http://localhost:8080/bookings \
 docker-compose exec postgres-flight psql -U flight -d flight -c "
 SELECT available_seats FROM flights WHERE flight_number = 'TEST001';"
 
+# Check idempotency
+docker-compose exec postgres-flight psql -U flight -d flight -c \
+"SELECT COUNT(*) FROM seat_reservations WHERE booking_id = '<BOOKING_ID>';"
+
 # Check if booking created
 docker-compose exec postgres-booking psql -U booking -d booking -c "
 SELECT id, seat_count, total_price, status FROM bookings WHERE passenger_email = 'john@example.com';"

@@ -210,6 +210,10 @@ func (r *FlightRepo) ReserveSeats(ctx context.Context, tx *sql.Tx, flightID stri
 		ctx,
 		`INSERT INTO seat_reservations (flight_id, booking_id, seat_count, status)
 		VALUES ($1, $2, $3, 'ACTIVE')
+		ON CONFLICT (booking_id) DO UPDATE 
+		set seat_count = EXCLUDED.seat_count, 
+			status = 'ACTIVE', 
+			updated_at = NOW()
 		RETURNING id`, 
 		flightID, bookingID, seatCount,
 	).Scan(

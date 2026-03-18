@@ -1,17 +1,19 @@
 package grpcclient
 
 import (
-    "context"
-    "log"
-    "os"
-    "time"
+	"context"
+	"log"
+	"os"
+	"time"
 
-    "google.golang.org/grpc"
-    "google.golang.org/grpc/metadata"
-    "google.golang.org/grpc/credentials/insecure"
-    "google.golang.org/protobuf/types/known/timestamppb"
+	retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
-    flightpb "flight-booking/.gen/.proto/flight"
+	flightpb "flight-booking/.gen/.proto/flight"
 )
 
 type FlightClient struct {
@@ -27,7 +29,24 @@ func NewFlightClient() *FlightClient {
         addr = "flight-service:9090"
     }
 
-    conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+    retryOpts := []retry.CallOption{
+        retry.WithMax(3),
+        retry.WithBackoff(
+            retry.BackoffExponentialWithJitter(
+                100 * time.Millisecond,
+                0.1,
+            ),
+        ),
+        retry.WithCodes(codes.Unavailable, codes.DeadlineExceeded),
+    }
+
+    conn, err := grpc.NewClient(
+        addr,
+        grpc.WithTransportCredentials(insecure.NewCredentials()),
+        grpc.WithUnaryInterceptor(
+            retry.UnaryClientInterceptor(retryOpts...),
+        ),
+    )
     if err != nil {
         log.Fatalf("Failed to connect to Flight Service: %v", err)
     }

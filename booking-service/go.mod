@@ -5,6 +5,7 @@ go 1.24.0
 require flight-booking/.gen v0.0.0
 
 require (
+	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0 // indirect
 	github.com/lib/pq v1.11.2 // indirect
 	golang.org/x/net v0.48.0 // indirect
 	golang.org/x/sys v0.39.0 // indirect
