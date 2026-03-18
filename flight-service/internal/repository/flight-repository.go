@@ -7,17 +7,53 @@ import (
 	"time"
 
 	"flight-booking/flight-service/internal/model"
+	"flight-booking/flight-service/pkg/cache"
 )
 
 type FlightRepo struct {
  	db *sql.DB
+	cache *cache.Cache
 }
 
-func NewFlightRepo(db *sql.DB) *FlightRepo {
-	return &FlightRepo{db: db}
+func NewFlightRepo(db *sql.DB, cache *cache.Cache) *FlightRepo {
+	return &FlightRepo{
+		db: db,
+		cache: cache,
+	}
 }
 
 func (r *FlightRepo) Search(ctx context.Context, origin string, destination string, date *time.Time) ([]model.Flight, error) {
+	dateStr := ""
+	if date != nil {
+		dateStr = date.Format("2005-02-21")
+	}
+	
+	if r.cache != nil {
+		cached, hit, err := r.cache.GetSearch(ctx, origin, destination, dateStr)
+		if err != nil {
+			fmt.Printf("Cache error: %v, going to database\n", err)
+		} else if hit && cached != nil {
+			var flights []model.Flight
+			for _, flight := range cached {
+				flights = append(flights, model.Flight{
+					ID: flight.ID,
+					FlightNumber: flight.FlightNumber,
+					DepartureDate: flight.DepartureDate,
+					Airline: flight.Airline,
+					OriginAirport: flight.OriginAirport,
+					DestinationAirport: flight.DestinationAirport,
+					DepartureTime: flight.DepartureTime,
+					ArrivalTime: flight.ArrivalTime,
+					TotalSeats:flight.TotalSeats,
+					AvailableSeats: flight.AvailableSeats,
+					Price: flight.Price,
+					Status: flight.Status,
+				})
+			}
+			return flights, nil
+		}
+	}
+	
 	query := `
 		SELECT id, flight_number, departure_date, airline, origin_airport, 
 		destination_airport, departure_time, arrival_time, total_seats, 
@@ -50,10 +86,51 @@ func (r *FlightRepo) Search(ctx context.Context, origin string, destination stri
 		}
 		flights = append(flights, f)
 	}
-	return flights, rows.Err()
+	if rows.Err() != nil {
+		return nil, rows.Err()
+	}
+
+	if r.cache != nil {
+		var cacheFlights []cache.FlightCache
+		for _, f := range flights {
+			cacheFlights = append(cacheFlights, cache.FlightCache{
+				ID:                 f.ID,
+				FlightNumber:       f.FlightNumber,
+				DepartureDate:      f.DepartureDate,
+				Airline:            f.Airline,
+			})
+			if err := r.cache.SetSearch(ctx, origin, destination, dateStr, cacheFlights); err != nil {
+				fmt.Printf("Cache error while setting search: %v\n", err)
+			}
+		}
+	}
+
+	return flights, nil
 }
 
 func (r *FlightRepo) GetByID(ctx context.Context, id string) (*model.Flight, error) {
+	if r.cache != nil {
+		cached, hit, err := r.cache.GetFlight(ctx, id)
+		if err != nil {
+			fmt.Printf("Cache error: %v, going to database\n", err)
+		} else if hit && cached != nil {
+			return &model.Flight{
+				ID: cached.ID,
+				FlightNumber: cached.FlightNumber,
+				DepartureDate: cached.DepartureDate,
+				Airline: cached.Airline,
+				OriginAirport: cached.OriginAirport,
+				DestinationAirport: cached.DestinationAirport,
+				DepartureTime: cached.DepartureTime,
+				ArrivalTime: cached.ArrivalTime,
+				TotalSeats:cached.TotalSeats,
+				AvailableSeats: cached.AvailableSeats,
+				Price: cached.Price,
+				Status: cached.Status,
+			}, nil
+		}
+	}
+	
 	var f model.Flight
 	err := r.db.QueryRowContext(
 		ctx,
@@ -71,6 +148,30 @@ func (r *FlightRepo) GetByID(ctx context.Context, id string) (*model.Flight, err
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
+	if err != nil {
+		return nil, err
+	}
+
+	if r.cache != nil {
+		caching := &cache.FlightCache{
+			ID: f.ID,
+			FlightNumber: f.FlightNumber,
+			DepartureDate: f.DepartureDate,
+			Airline: f.Airline,
+			OriginAirport: f.OriginAirport,
+			DestinationAirport: f.DestinationAirport,
+			DepartureTime: f.DepartureTime,
+			ArrivalTime: f.ArrivalTime,
+			TotalSeats:f.TotalSeats,
+			AvailableSeats: f.AvailableSeats,
+			Price: f.Price,
+			Status: f.Status,
+		}
+		if err := r.cache.SetFlight(ctx, id, caching); err != nil {
+			fmt.Printf("Cache error while writing: %v\n", err)
+		}
+	}
+
 	return &f, err
 }
 
@@ -115,6 +216,12 @@ func (r *FlightRepo) ReserveSeats(ctx context.Context, tx *sql.Tx, flightID stri
 		&reservationID,
 	)
 
+	if r.cache != nil {
+		if err := r.cache.InvalidateFlight(ctx, flightID); err != nil {
+			fmt.Printf("Cache error while invalidating flight: %v\n", err)
+		}
+	}
+
 	return reservationID, err
 }
 
@@ -154,5 +261,12 @@ func (r *FlightRepo) ReleaseReservation(ctx context.Context, tx *sql.Tx, booking
 		"UPDATE seat_reservations SET status = 'RELEASED', updated_at = NOW() WHERE id = $1", 
 		reservationID,
 	)
+
+	if r.cache != nil {
+		if err := r.cache.InvalidateFlight(ctx, flightID); err != nil {
+			fmt.Printf("Cache error while invalidating flight: %v\n", err)
+		}
+	}
+
 	return err == nil, err
 }

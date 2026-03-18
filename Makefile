@@ -1,4 +1,4 @@
-.PHONY: proto-install proto generate up down test insert-test-data
+.PHONY: proto-install proto generate up down test insert-test-data logs
 
 proto-install:
 	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
@@ -36,3 +36,6 @@ insert-test-data:
 		'2026-04-01 10:00:00', '2026-04-01 12:00:00', \
 		100, 50, 5000.00, 'SCHEDULED' \
 	) RETURNING id;"
+
+logs:
+	docker-compose logs flight-service | grep -E "CACHE HIT|CACHE MISS"

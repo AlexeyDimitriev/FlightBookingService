@@ -12,18 +12,21 @@ import (
 	flightpb "flight-booking/.gen/.proto/flight"
 	"flight-booking/flight-service/internal/model"
 	"flight-booking/flight-service/internal/repository"
+	"flight-booking/flight-service/pkg/cache"
 )
 
 type FlightHandler struct {
 	flightpb.UnimplementedFlightServiceServer
 	repo *repository.FlightRepo
-	db   *sql.DB
+	db *sql.DB
+	cache *cache.Cache
 }
 
-func NewFlightHandler(repo *repository.FlightRepo, db *sql.DB) *FlightHandler {
+func NewFlightHandler(repo *repository.FlightRepo, db *sql.DB, cache *cache.Cache) *FlightHandler {
 	return &FlightHandler{
 		repo: repo,
 		db: db,
+		cache: cache,
 	}
 }
 

@@ -1,6 +1,6 @@
 module flight-booking/booking-service
 
-go 1.24
+go 1.24.0
 
 require flight-booking/.gen v0.0.0
 

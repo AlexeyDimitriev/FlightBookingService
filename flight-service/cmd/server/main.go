@@ -11,14 +11,18 @@ import (
 	"flight-booking/flight-service/internal/repository"
 	"flight-booking/flight-service/internal/middleware"
 	"flight-booking/flight-service/pkg/database"
+	"flight-booking/flight-service/pkg/cache"
 	flightpb "flight-booking/.gen/.proto/flight"
 )
 
 func main() {
 	db := database.Connect()
-	repo := repository.NewFlightRepo(db)
+	cacheClient := cache.NewCache()
+	defer cacheClient.Close()
 
-	h := handler.NewFlightHandler(repo, db)
+	repo := repository.NewFlightRepo(db, cacheClient)
+
+	h := handler.NewFlightHandler(repo, db, cacheClient)
 
 	grpcPort := os.Getenv("GRPC_PORT")
 	if grpcPort == "" {
