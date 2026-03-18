@@ -25,5 +25,6 @@ type CreateBookingRequest struct {
 	FlightID string `json:"flight_id"`
 	PassengerName string `json:"passenger_name"`
 	PassengerEmail string `json:"passenger_email"`
+	PassengerPhone string `json:"passenger_phone"`
 	SeatCount int32 `json:"seat_count"`
 }

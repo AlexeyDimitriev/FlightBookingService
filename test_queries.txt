@@ -4,7 +4,7 @@
 curl -s -X POST http://localhost:8080/bookings \
   -H "Content-Type: application/json" \
   -d '{
-    "flight_id": "<FLIGHT_ID>",
+    "flight_id": "6f44b689-3086-4607-be8a-1fd79a159b8d",
     "passenger_name": "John Doe",
     "passenger_email": "john@example.com",
     "passenger_phone": "88005553535",

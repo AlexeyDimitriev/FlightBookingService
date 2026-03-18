@@ -50,6 +50,7 @@ func (s *BookingService) CreateBooking(ctx context.Context, req *model.CreateBoo
 		DepartureTime: flight.DepartureTime.AsTime(),
 		PassengerName: req.PassengerName,
 		PassengerEmail: req.PassengerEmail,
+		PassengerPhone: req.PassengerPhone,
 		SeatCount: req.SeatCount,
 		TotalPrice: totalPrice,
 		Status: "CONFIRMED",
